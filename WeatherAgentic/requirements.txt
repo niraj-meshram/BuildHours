@@ -1,0 +1,19 @@
+# Core OpenAI packages (Agents SDK)
+openai>=1.50.0
+openai-agents>=0.3.0
+
+# FastAPI backend + Uvicorn server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
+# Requests for frontend polling and external API calls
+requests>=2.32.0
+
+# Pydantic for models (FastAPI depends on this)
+pydantic>=2.8.0
+
+# Environment variable loader (optional)
+python-dotenv>=1.0.1
+
+# Typing utilities
+typing_extensions>=4.9.0
