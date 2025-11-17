@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Image Studio (OpenAI Responses + Image Gen)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 1.5rem auto; }
+    h1 { margin-bottom: 0.5rem; }
+    section { border: 1px solid #ddd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+    label { display: block; margin-top: 0.5rem; }
+    input[type="text"], textarea, select { width: 100%; padding: 0.4rem; margin-top: 0.25rem; }
+    button { margin-top: 0.75rem; padding: 0.5rem 1rem; cursor: pointer; }
+    .images { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+    .images img { max-width: 256px; border-radius: 8px; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h1>Image Studio</h1>
+  <p>Generate and edit images using OpenAI Responses API + image_generation tool.</p>
+
+  <!-- Generate section -->
+  <section>
+    <h2>Generate Image</h2>
+    <label>
+      Prompt
+      <textarea id="gen-prompt" rows="3"
+        placeholder="A futuristic city at sunset with flying cars..."></textarea>
+    </label>
+
+    <label>
+      Style (optional)
+      <input id="gen-style" type="text" placeholder="3D render, anime, watercolor, etc." />
+    </label>
+
+    <label>
+      Size
+      <select id="gen-size">
+        <option value="1024x1024">1024x1024</option>
+        <option value="1024x1536">1024x1536 (tall)</option>
+        <option value="1536x1024">1536x1024 (wide)</option>
+        <option value="auto">auto</option>
+      </select>
+    </label>
+
+    <label>
+      Quality
+      <select id="gen-quality">
+        <option value="high">high</option>
+        <option value="medium">medium</option>
+        <option value="low">low</option>
+        <option value="auto">auto</option>
+      </select>
+    </label>
+
+    <label>
+      Number of images
+      <select id="gen-n">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+      </select>
+    </label>
+
+    <button id="gen-btn">Generate</button>
+    <div id="gen-status"></div>
+    <div id="gen-images" class="images"></div>
+  </section>
+
+  <!-- Edit section -->
+  <section>
+    <h2>Edit Existing Image</h2>
+    <label>
+      Upload image
+      <input id="edit-file" type="file" accept="image/*" />
+    </label>
+
+    <label>
+      Instruction (what do you want changed?)
+      <textarea id="edit-instruction" rows="3"
+        placeholder="Add fireworks in the sky, change background to a beach, etc."></textarea>
+    </label>
+
+    <label>
+      Size
+      <select id="edit-size">
+        <option value="1024x1024">1024x1024</option>
+        <option value="1024x1536">1024x1536 (tall)</option>
+        <option value="1536x1024">1536x1024 (wide)</option>
+        <option value="auto">auto</option>
+      </select>
+    </label>
+
+    <label>
+      Quality
+      <select id="edit-quality">
+        <option value="high">high</option>
+        <option value="medium">medium</option>
+        <option value="low">low</option>
+        <option value="auto">auto</option>
+      </select>
+    </label>
+
+    <button id="edit-btn">Edit Image</button>
+    <div id="edit-status"></div>
+    <div id="edit-images" class="images"></div>
+  </section>
+
+  <script>
+    const BACKEND = "http://localhost:8000";
+
+    // -------- Generate --------
+    document.getElementById("gen-btn").onclick = async () => {
+      const prompt = document.getElementById("gen-prompt").value.trim();
+      const style = document.getElementById("gen-style").value.trim();
+      const size = document.getElementById("gen-size").value;
+      const quality = document.getElementById("gen-quality").value;
+      const n = parseInt(document.getElementById("gen-n").value, 10);
+
+      const statusEl = document.getElementById("gen-status");
+      const imagesEl = document.getElementById("gen-images");
+      imagesEl.innerHTML = "";
+      statusEl.textContent = "Generating...";
+
+      try {
+        const body = { prompt, size, quality, n };
+        if (style) body.style = style;
+
+        const res = await fetch(`${BACKEND}/api/generate-image`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || "HTTP " + res.status);
+        }
+
+        const data = await res.json();
+        statusEl.textContent = `Got ${data.images.length} image(s).`;
+
+        data.images.forEach((b64, idx) => {
+          const img = document.createElement("img");
+          img.src = `data:image/png;base64,${b64}`;
+          img.alt = "Generated image " + (idx + 1);
+          imagesEl.appendChild(img);
+        });
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Error: " + err.message;
+      }
+    };
+
+    // -------- Edit --------
+    document.getElementById("edit-btn").onclick = async () => {
+      const fileInput = document.getElementById("edit-file");
+      const instruction = document.getElementById("edit-instruction").value.trim();
+      const size = document.getElementById("edit-size").value;
+      const quality = document.getElementById("edit-quality").value;
+
+      const statusEl = document.getElementById("edit-status");
+      const imagesEl = document.getElementById("edit-images");
+      imagesEl.innerHTML = "";
+      statusEl.textContent = "Editing...";
+
+      if (!fileInput.files[0]) {
+        statusEl.textContent = "Please upload an image first.";
+        return;
+      }
+      if (!instruction) {
+        statusEl.textContent = "Please provide an instruction.";
+        return;
+      }
+
+      try {
+        const form = new FormData();
+        form.append("file", fileInput.files[0]);
+        form.append("instruction", instruction);
+        form.append("size", size);
+        form.append("quality", quality);
+
+        const res = await fetch(`${BACKEND}/api/edit-image`, {
+          method: "POST",
+          body: form,
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || "HTTP " + res.status);
+        }
+
+        const data = await res.json();
+        statusEl.textContent = `Got ${data.images.length} edited image(s).`;
+
+        data.images.forEach((b64, idx) => {
+          const img = document.createElement("img");
+          img.src = `data:image/png;base64,${b64}`;
+          img.alt = "Edited image " + (idx + 1);
+          imagesEl.appendChild(img);
+        });
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Error: " + err.message;
+      }
+    };
+  </script>
+</body>
+</html>
