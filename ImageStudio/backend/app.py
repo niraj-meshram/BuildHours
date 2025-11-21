@@ -78,6 +78,7 @@ async def generate_image(body: GenerateRequest):
     """
     logger.info(f"/api/generate-image called with body={body}")
 
+
     # Build prompt with style + requested count
     lines = [body.prompt]
     if body.style:
