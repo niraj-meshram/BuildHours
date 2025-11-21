@@ -8,7 +8,6 @@ from openai import OpenAI
 # OpenAI client (uses OPENAI_API_KEY from env)
 # -----------------------------
 client = OpenAI()
-
 # -----------------------------
 # Helpers
 # -----------------------------
